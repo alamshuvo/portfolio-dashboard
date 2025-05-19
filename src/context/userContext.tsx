@@ -1,6 +1,5 @@
+"use client";
 
-import { getCurrentUser } from "@/service/authService";
-import { IUser } from "@/types/user";
 import {
   createContext,
   Dispatch,
@@ -9,6 +8,8 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useSession } from "next-auth/react";
+import { IUser } from "@/types/user";
 
 interface IUserProviderValues {
   user: IUser | null;
@@ -20,18 +21,21 @@ interface IUserProviderValues {
 const UserContext = createContext<IUserProviderValues | undefined>(undefined);
 
 const UserProvider = ({ children }: { children: React.ReactNode }) => {
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<IUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const handleUser = async () => {
-    const user = await getCurrentUser();
-    setUser(user);
-    setIsLoading(false);
-  };
-
   useEffect(() => {
-    handleUser();
-  }, [isLoading]);
+    if (status === "authenticated") {
+      setUser(session?.user as IUser);
+    } else {
+      setUser(null);
+    }
+
+    if (status !== "loading") {
+      setIsLoading(false);
+    }
+  }, [session, status]);
 
   return (
     <UserContext.Provider value={{ user, setUser, isLoading, setIsLoading }}>
@@ -43,7 +47,7 @@ const UserProvider = ({ children }: { children: React.ReactNode }) => {
 export const useUser = () => {
   const context = useContext(UserContext);
 
-  if (context == undefined) {
+  if (context === undefined) {
     throw new Error("useUser must be used within the UserProvider context");
   }
 
